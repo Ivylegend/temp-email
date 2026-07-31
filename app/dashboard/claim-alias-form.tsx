@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2, Plus, X } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
+import { ALIAS_DOMAIN } from "@/lib/config";
 import { claimAlias } from "./actions";
 
 export function ClaimAliasForm() {
@@ -35,7 +36,7 @@ export function ClaimAliasForm() {
         }
 
         setState(payload.available ? "available" : "taken");
-        setMessage(payload.available ? `${payload.prefix}@icha.ng is available.` : "That alias is already claimed.");
+        setMessage(payload.available ? `${payload.prefix}@${ALIAS_DOMAIN} is available.` : "That alias is already claimed.");
       } catch (error) {
         if (!controller.signal.aborted) {
           setState("invalid");

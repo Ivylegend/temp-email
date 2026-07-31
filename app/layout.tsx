@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { APP_NAME } from "@/lib/config";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "icha.ng aliases",
-  description: "Private email alias dashboard"
+  title: APP_NAME,
+  description: "Private email alias dashboard",
+  icons: {
+    icon: "/icon.svg"
+  }
 };
 
 export default function RootLayout({

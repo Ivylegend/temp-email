@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ShieldAlert, Trash2 } from "lucide-react";
 import { RefreshLink } from "@/components/refresh-link";
 import { SubmitButton } from "@/components/submit-button";
+import { ALIAS_DOMAIN } from "@/lib/config";
 import { createClient } from "@/lib/supabase/server";
 import type { Alias, Message } from "@/lib/types";
 import { deleteMessage } from "./actions";
@@ -51,7 +52,7 @@ export default async function AliasPage({
     <main className="shell">
       <header className="topbar">
         <div>
-          <div className="brand">{currentAlias.prefix}@icha.ng</div>
+          <div className="brand">{currentAlias.prefix}@{ALIAS_DOMAIN}</div>
           <div className="muted">{user.email}</div>
         </div>
         <div className="button-row">

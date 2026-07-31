@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { KeyRound, LogIn } from "lucide-react";
 import { PasswordField } from "@/components/password-field";
 import { SubmitButton } from "@/components/submit-button";
+import { APP_NAME } from "@/lib/config";
 import { createClient } from "@/lib/supabase/server";
 import { signIn } from "./actions";
 
@@ -22,7 +23,7 @@ export default async function LoginPage({
   return (
     <main className="login-page">
       <section className="login-panel">
-        <div className="brand">icha.ng aliases</div>
+        <div className="brand">{APP_NAME}</div>
         <h1>Sign in</h1>
         <p className="muted">Invite-only access for the friend group.</p>
         <form action={signIn} className="form-grid">

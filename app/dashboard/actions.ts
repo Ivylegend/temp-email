@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { ALIAS_DOMAIN } from "@/lib/config";
 import { createClient } from "@/lib/supabase/server";
 import { validatePrefix } from "@/lib/validation";
 
@@ -32,7 +33,7 @@ export async function claimAlias(formData: FormData) {
   }
 
   revalidatePath("/dashboard");
-  redirect(`/dashboard?success=${encodeURIComponent(`${prefix}@icha.ng is yours.`)}`);
+  redirect(`/dashboard?success=${encodeURIComponent(`${prefix}@${ALIAS_DOMAIN} is yours.`)}`);
 }
 
 export async function signOut() {

@@ -16,6 +16,8 @@ type ParsedAddress = {
   name?: string;
 };
 
+const ALIAS_DOMAIN = "switdb.com";
+
 export default {
   async email(message: EmailMessage, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(captureMessage(message, env));
@@ -25,11 +27,11 @@ export default {
 async function captureMessage(message: EmailMessage, env: Env) {
   const parsed = await PostalMime.parse(message.raw);
   const headers = normalizeHeaders(parsed.headers);
-  const toAddress = findIchaAddress(message.to, parsed.to as ParsedAddress[] | undefined);
+  const toAddress = findAliasAddress(message.to, parsed.to as ParsedAddress[] | undefined);
   const prefix = extractPrefix(toAddress);
 
   if (!prefix) {
-    console.log("Dropped email without icha.ng recipient", { envelopeTo: message.to });
+    console.log(`Dropped email without ${ALIAS_DOMAIN} recipient`, { envelopeTo: message.to });
     return;
   }
 
@@ -57,13 +59,19 @@ async function captureMessage(message: EmailMessage, env: Env) {
   );
 }
 
-function findIchaAddress(envelopeTo: string, parsedTo?: ParsedAddress[]) {
+function findAliasAddress(envelopeTo: string, parsedTo?: ParsedAddress[]) {
   const candidates = [envelopeTo, ...(parsedTo || []).map((item) => item.address || "")];
-  return candidates.find((address) => /@icha\.ng$/i.test(address.trim()));
+  return candidates.find((address) => address.trim().toLowerCase().endsWith(`@${ALIAS_DOMAIN}`));
 }
 
 function extractPrefix(address?: string) {
-  const match = address?.trim().toLowerCase().match(/^([^@\s]+)@icha\.ng$/);
+  const normalized = address?.trim().toLowerCase();
+
+  if (!normalized?.endsWith(`@${ALIAS_DOMAIN}`)) {
+    return null;
+  }
+
+  const match = normalized.match(/^([^@\s]+)@[^@\s]+$/);
   return match?.[1] || null;
 }
 

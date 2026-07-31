@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Inbox, LogOut } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { RefreshLink } from "@/components/refresh-link";
+import { ALIAS_DOMAIN, APP_NAME } from "@/lib/config";
 import { createClient } from "@/lib/supabase/server";
 import type { Alias } from "@/lib/types";
 import { signOut } from "./actions";
@@ -35,7 +36,7 @@ export default async function DashboardPage({
     <main className="shell">
       <header className="topbar">
         <div>
-          <div className="brand">icha.ng aliases</div>
+          <div className="brand">{APP_NAME}</div>
           <div className="muted">{user.email}</div>
         </div>
         <form action={signOut}>
@@ -67,7 +68,7 @@ export default async function DashboardPage({
             (aliases as Alias[]).map((alias) => (
               <article className="alias-item" key={alias.id}>
                 <div>
-                  <div className="alias-address">{alias.prefix}@icha.ng</div>
+                  <div className="alias-address">{alias.prefix}@{ALIAS_DOMAIN}</div>
                   <div className="muted">Created {new Date(alias.created_at).toLocaleString()}</div>
                 </div>
                 <Link className="button secondary" href={`/dashboard/aliases/${alias.id}`} title="Open alias">

@@ -1,6 +1,6 @@
-# icha.ng aliases
+# switdb.com aliases
 
-Private invite-only email alias dashboard for `icha.ng`, deployed at `https://en.icha.ng`.
+Private invite-only email alias dashboard for `switdb.com`.
 
 ## Local setup
 
@@ -20,4 +20,4 @@ The Worker lives in `worker/index.ts` and expects these secrets:
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
-Deploy with `npm run worker:deploy`, then attach the Worker to the `icha.ng` Email Routing catch-all rule.
+Deploy with `npm run worker:deploy`, then attach the Worker to the `switdb.com` Email Routing catch-all rule.
