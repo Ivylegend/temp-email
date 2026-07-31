@@ -1,0 +1,84 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { Check, Loader2, Plus, X } from "lucide-react";
+import { SubmitButton } from "@/components/submit-button";
+import { claimAlias } from "./actions";
+
+export function ClaimAliasForm() {
+  const [prefix, setPrefix] = useState("");
+  const [state, setState] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
+  const [message, setMessage] = useState("");
+
+  const normalized = useMemo(() => prefix.trim().toLowerCase(), [prefix]);
+
+  useEffect(() => {
+    if (!normalized) {
+      setState("idle");
+      setMessage("");
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setState("checking");
+      try {
+        const response = await fetch(`/api/aliases/check?prefix=${encodeURIComponent(normalized)}`, {
+          signal: controller.signal
+        });
+        const payload = await response.json();
+
+        if (!response.ok) {
+          setState("invalid");
+          setMessage(payload.error || "Could not check that prefix.");
+          return;
+        }
+
+        setState(payload.available ? "available" : "taken");
+        setMessage(payload.available ? `${payload.prefix}@icha.ng is available.` : "That alias is already claimed.");
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setState("invalid");
+          setMessage("Could not check that prefix.");
+        }
+      }
+    }, 300);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [normalized]);
+
+  return (
+    <form action={claimAlias} className="claim-form">
+      <label>
+        New prefix
+        <input
+          name="prefix"
+          value={prefix}
+          onChange={(event) => setPrefix(event.target.value)}
+          placeholder="alice123"
+          autoComplete="off"
+          required
+        />
+        {message ? <span className={`hint ${state}`}>{iconForState(state)} {message}</span> : null}
+      </label>
+      <SubmitButton
+        disabled={state === "checking" || state === "taken" || state === "invalid"}
+        title="Claim alias"
+        pendingText="Claiming"
+      >
+        <Plus size={18} />
+        Claim
+      </SubmitButton>
+    </form>
+  );
+}
+
+function iconForState(state: string) {
+  if (state === "checking") return <Loader2 size={14} />;
+  if (state === "available") return <Check size={14} />;
+  if (state === "taken" || state === "invalid") return <X size={14} />;
+  return null;
+}

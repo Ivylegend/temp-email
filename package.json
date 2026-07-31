@@ -1,0 +1,36 @@
+{
+  "name": "icha-alias",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "worker:deploy": "wrangler deploy",
+    "worker:secret:supabase-url": "wrangler secret put SUPABASE_URL",
+    "worker:secret:supabase-service-role-key": "wrangler secret put SUPABASE_SERVICE_ROLE_KEY"
+  },
+  "dependencies": {
+    "@netlify/plugin-nextjs": "^5.15.13",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.45.4",
+    "lucide-react": "^0.468.0",
+    "next": "^16.2.12",
+    "postal-mime": "^2.4.3",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-spinners": "^0.17.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240925.0",
+    "@types/node": "^20.17.6",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "eslint": "^10.8.0",
+    "eslint-config-next": "^16.2.12",
+    "netlify-cli": "^27.0.1",
+    "typescript": "^5.6.3",
+    "wrangler": "^3.83.0"
+  }
+}

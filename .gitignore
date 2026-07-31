@@ -1,0 +1,12 @@
+.next
+node_modules
+.env*.local
+.env
+.wrangler
+.netlify
+.npm-cache
+dist
+*.log
+
+# Local Netlify folder
+.netlify
