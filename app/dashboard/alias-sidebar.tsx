@@ -1,166 +1,333 @@
 "use client";
 
+import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ChevronRight, FolderOpen, Inbox, Trash2 } from "lucide-react";
-import { useState } from "react";
-import type { Alias, Group } from "@/lib/types";
-import { AliasMenu } from "./alias-menu";
-import { createGroup, deleteGroup } from "./actions";
+import {
+  ChevronRight,
+  FolderOpen,
+  Inbox,
+  MoreHorizontal,
+  Plus,
+  Trash2,
+  X
+} from "lucide-react";
+import type { Alias } from "@/lib/types";
+import { deleteAlias } from "./actions";
 
-interface Props {
-  aliases: Alias[];
-  groups: Group[];
-  domain: string;
+/* ── Local group type (stored in localStorage) ─────────────── */
+interface LocalGroup {
+  id: string;
+  name: string;
+  aliasIds: string[];
 }
 
-function AliasRow({
-  alias,
-  domain,
-  activeId,
-  groups
-}: {
+const STORAGE_KEY = "alias-groups-v1";
+
+function loadGroups(): LocalGroup[] {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveGroups(groups: LocalGroup[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
+}
+
+/* ── Portal context menu ───────────────────────────────────── */
+interface CtxMenuProps {
   alias: Alias;
-  domain: string;
-  activeId: string | undefined;
-  groups: Group[];
-}) {
-  const isActive = alias.id === activeId;
-  return (
-    <div className={`sidebar-alias-item${isActive ? " active" : ""}`}>
-      <Link
-        href={`/dashboard/aliases/${alias.id}`}
-        className="sidebar-alias-link"
-        title={`${alias.prefix}@${domain}`}
-      >
-        <Inbox size={14} className="sidebar-alias-icon" />
-        <div className="sidebar-alias-info">
-          <div className="sidebar-alias-prefix">{alias.prefix}</div>
-          <div className="sidebar-alias-domain">@{domain}</div>
-        </div>
-      </Link>
-      <AliasMenu alias={alias} groups={groups} />
-    </div>
+  groups: LocalGroup[];
+  aliasGroup: LocalGroup | null;
+  anchorRect: DOMRect;
+  onAssign: (groupId: string) => void;
+  onRemove: () => void;
+  onClose: () => void;
+}
+
+function CtxMenu({
+  alias,
+  groups,
+  aliasGroup,
+  anchorRect,
+  onAssign,
+  onRemove,
+  onClose
+}: CtxMenuProps) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      ref={ref}
+      className="alias-ctx-menu"
+      style={{ position: "fixed", top: anchorRect.bottom + 4, left: anchorRect.left, zIndex: 9999 }}
+    >
+      {groups.length > 0 && (
+        <>
+          <div className="alias-ctx-section">Move to group</div>
+          {groups.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              className={`alias-ctx-item${aliasGroup?.id === g.id ? " current" : ""}`}
+              onClick={() => { onAssign(g.id); onClose(); }}
+            >
+              <FolderOpen size={13} />
+              {g.name}
+            </button>
+          ))}
+          {aliasGroup && (
+            <button
+              type="button"
+              className="alias-ctx-item"
+              onClick={() => { onRemove(); onClose(); }}
+            >
+              <X size={13} />
+              Remove from group
+            </button>
+          )}
+          <div className="alias-ctx-divider" />
+        </>
+      )}
+      <form action={deleteAlias}>
+        <input type="hidden" name="alias_id" value={alias.id} />
+        <button type="submit" className="alias-ctx-item danger">
+          <Trash2 size={13} />
+          Delete alias
+        </button>
+      </form>
+    </div>,
+    document.body
   );
 }
 
-export function AliasSidebar({ aliases, groups, domain }: Props) {
+/* ── Main sidebar ──────────────────────────────────────────── */
+interface Props {
+  aliases: Alias[];
+  domain: string;
+}
+
+export function AliasSidebar({ aliases, domain }: Props) {
   const params = useParams<{ id?: string }>();
   const activeId = params?.id;
 
-  // New group form state
-  const [showNewGroup, setShowNewGroup] = useState(false);
+  const [groups, setGroups] = useState<LocalGroup[]>([]);
+  const [mounted, setMounted] = useState(false);
+  const [newGroupOpen, setNewGroupOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [ctxMenu, setCtxMenu] = useState<{ aliasId: string; rect: DOMRect } | null>(null);
 
-  const ungrouped = aliases.filter((a) => !a.group_id);
+  const newGroupInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    setGroups(loadGroups());
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (newGroupOpen) {
+      const t = setTimeout(() => newGroupInputRef.current?.focus(), 30);
+      return () => clearTimeout(t);
+    }
+  }, [newGroupOpen]);
+
+  /* ── Group mutations ── */
+  const updateGroups = useCallback((next: LocalGroup[]) => {
+    setGroups(next);
+    saveGroups(next);
+  }, []);
+
+  function createGroup() {
+    const name = newGroupName.trim();
+    if (!name) return;
+    updateGroups([...groups, { id: crypto.randomUUID(), name, aliasIds: [] }]);
+    setNewGroupName("");
+    setNewGroupOpen(false);
+  }
+
+  function deleteGroup(group: LocalGroup) {
+    if (!confirm(`Delete group "${group.name}"? Aliases will become ungrouped.`)) return;
+    updateGroups(groups.filter((g) => g.id !== group.id));
+  }
+
+  function assignToGroup(aliasId: string, groupId: string) {
+    updateGroups(
+      groups.map((g) => ({
+        ...g,
+        aliasIds:
+          g.id === groupId
+            ? [...g.aliasIds.filter((id) => id !== aliasId), aliasId]
+            : g.aliasIds.filter((id) => id !== aliasId)
+      }))
+    );
+  }
+
+  function removeFromGroup(aliasId: string) {
+    updateGroups(groups.map((g) => ({ ...g, aliasIds: g.aliasIds.filter((id) => id !== aliasId) })));
+  }
+
+  /* ── Derived data ── */
+  const groupedIds = new Set(mounted ? groups.flatMap((g) => g.aliasIds) : []);
+  const ungrouped = aliases.filter((a) => !groupedIds.has(a.id));
+
+  function getGroupAliases(g: LocalGroup) {
+    return g.aliasIds.map((id) => aliases.find((a) => a.id === id)).filter(Boolean) as Alias[];
+  }
+
+  function getAliasGroup(aliasId: string) {
+    return (mounted ? groups.find((g) => g.aliasIds.includes(aliasId)) : undefined) ?? null;
+  }
+
+  /* ── Context menu state ── */
+  const ctxAlias = ctxMenu ? (aliases.find((a) => a.id === ctxMenu.aliasId) ?? null) : null;
+  const ctxGroup = ctxAlias ? getAliasGroup(ctxAlias.id) : null;
+
+  /* ── Alias row ── */
+  function AliasRow({ alias, indented = false }: { alias: Alias; indented?: boolean }) {
+    const isActive = alias.id === activeId;
+    return (
+      <div className={`alias-row-wrap${indented ? " indented" : ""}`}>
+        <Link
+          href={`/dashboard/aliases/${alias.id}`}
+          className={`sidebar-alias-item${isActive ? " active" : ""}`}
+          title={`${alias.prefix}@${domain}`}
+        >
+          <Inbox size={14} className="sidebar-alias-icon" />
+          <div className="sidebar-alias-info">
+            <div className="sidebar-alias-prefix">{alias.prefix}</div>
+            <div className="sidebar-alias-domain">@{domain}</div>
+          </div>
+        </Link>
+        <button
+          type="button"
+          className="alias-more-btn"
+          title="Options"
+          onClick={(e) => {
+            e.stopPropagation();
+            const rect = e.currentTarget.getBoundingClientRect();
+            setCtxMenu((prev) => (prev?.aliasId === alias.id ? null : { aliasId: alias.id, rect }));
+          }}
+        >
+          <MoreHorizontal size={13} />
+        </button>
+      </div>
+    );
+  }
+
+  /* ── Render ── */
   return (
-    <>
-      {/* Scrollable list fills remaining height */}
-      <nav className="sidebar-alias-list">
-        {/* ── Ungrouped aliases ── */}
-        {ungrouped.length === 0 && groups.length === 0 && (
-          <div className="sidebar-empty">No aliases yet.</div>
-        )}
+    <div className="sidebar-body">
+      {/* Scrollable area */}
+      <nav className="sidebar-scroll-area">
+        {!aliases?.length && <div className="sidebar-empty">No aliases yet.</div>}
 
+        {/* Ungrouped aliases */}
         {ungrouped.map((alias) => (
-          <AliasRow
-            key={alias.id}
-            alias={alias}
-            domain={domain}
-            activeId={activeId}
-            groups={groups}
-          />
+          <AliasRow key={alias.id} alias={alias} />
         ))}
 
-        {/* ── Groups ── */}
-        {groups.map((group) => {
-          const groupAliases = aliases.filter((a) => a.group_id === group.id);
-          return (
-            <details key={group.id} className="sidebar-group" open>
-              <summary className="sidebar-group-header">
-                <ChevronRight size={13} className="sidebar-group-chevron" />
-                <FolderOpen size={14} className="sidebar-group-icon" />
-                <span className="sidebar-group-name">{group.name}</span>
-                <span className="sidebar-group-count">{groupAliases.length}</span>
-
-                {/* Delete group */}
-                <form
-                  action={deleteGroup}
-                  onClick={(e) => e.stopPropagation()}
-                  className="sidebar-group-delete-form"
-                >
-                  <input type="hidden" name="group_id" value={group.id} />
+        {/* Groups */}
+        {mounted &&
+          groups.map((group) => {
+            const groupAliases = getGroupAliases(group);
+            return (
+              <details key={group.id} className="sidebar-group">
+                <summary className="sidebar-group-header">
+                  <ChevronRight size={12} className="group-chevron" />
+                  <FolderOpen size={13} className="group-folder-icon" />
+                  <span className="sidebar-group-name">{group.name}</span>
+                  <span className="sidebar-group-count">{groupAliases.length}</span>
                   <button
-                    type="submit"
-                    className="sidebar-group-delete-btn"
+                    type="button"
+                    className="group-delete-btn"
                     title="Delete group"
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      deleteGroup(group);
+                    }}
                   >
-                    <Trash2 size={12} />
+                    <X size={11} />
                   </button>
-                </form>
-              </summary>
-
-              <div className="sidebar-group-body">
-                {groupAliases.length === 0 ? (
-                  <div className="sidebar-group-empty">No aliases in this group.</div>
-                ) : (
-                  groupAliases.map((alias) => (
-                    <AliasRow
-                      key={alias.id}
-                      alias={alias}
-                      domain={domain}
-                      activeId={activeId}
-                      groups={groups}
-                    />
-                  ))
-                )}
-              </div>
-            </details>
-          );
-        })}
+                </summary>
+                <div className="sidebar-group-body">
+                  {groupAliases.length ? (
+                    groupAliases.map((alias) => <AliasRow key={alias.id} alias={alias} indented />)
+                  ) : (
+                    <div className="sidebar-group-empty">Use ··· on an alias to add it here</div>
+                  )}
+                </div>
+              </details>
+            );
+          })}
       </nav>
 
-      {/* ── Floating footer — always pinned to sidebar bottom ── */}
+      {/* Floating footer — always visible, never scrolls away */}
       <div className="sidebar-footer">
-        {showNewGroup ? (
-          <form
-            action={async (fd) => {
-              await createGroup(fd);
-              setShowNewGroup(false);
-            }}
-            className="new-group-form"
-          >
+        {newGroupOpen ? (
+          <div className="new-group-form">
             <input
-              name="name"
-              placeholder="Group name…"
-              autoFocus
+              ref={newGroupInputRef}
+              type="text"
               className="new-group-input"
-              required
-              onKeyDown={(e) => e.key === "Escape" && setShowNewGroup(false)}
+              placeholder="Group name…"
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") createGroup();
+                if (e.key === "Escape") {
+                  setNewGroupOpen(false);
+                  setNewGroupName("");
+                }
+              }}
             />
-            <div className="new-group-actions">
-              <button type="submit" className="new-group-submit">Create</button>
+            <div className="new-group-btns">
+              <button type="button" className="button new-group-save-btn" onClick={createGroup}>
+                Create
+              </button>
               <button
                 type="button"
-                className="new-group-cancel"
-                onClick={() => setShowNewGroup(false)}
+                className="icon-btn-ghost"
+                onClick={() => {
+                  setNewGroupOpen(false);
+                  setNewGroupName("");
+                }}
               >
-                Cancel
+                <X size={14} />
               </button>
             </div>
-          </form>
+          </div>
         ) : (
-          <button
-            type="button"
-            className="new-group-btn"
-            onClick={() => setShowNewGroup(true)}
-          >
-            <FolderOpen size={14} />
+          <button type="button" className="new-group-btn" onClick={() => setNewGroupOpen(true)}>
+            <Plus size={13} />
             New group
           </button>
         )}
       </div>
-    </>
+
+      {/* Portal context menu (rendered outside scroll area to avoid clipping) */}
+      {ctxMenu && ctxAlias && (
+        <CtxMenu
+          alias={ctxAlias}
+          groups={groups}
+          aliasGroup={ctxGroup}
+          anchorRect={ctxMenu.rect}
+          onAssign={(groupId) => assignToGroup(ctxAlias.id, groupId)}
+          onRemove={() => removeFromGroup(ctxAlias.id)}
+          onClose={() => setCtxMenu(null)}
+        />
+      )}
+    </div>
   );
 }

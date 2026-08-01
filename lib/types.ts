@@ -3,14 +3,6 @@ export type Alias = {
   prefix: string;
   user_id: string;
   created_at: string;
-  group_id: string | null;
-};
-
-export type Group = {
-  id: string;
-  name: string;
-  user_id: string;
-  created_at: string;
 };
 
 export type Message = {

@@ -116,33 +116,3 @@ select cron.schedule(
   '15 3 * * *',
   $$delete from public.messages where received_at < now() - interval '5 days'$$
 );
-
--- ─── Groups migration ─────────────────────────────────────────────────────────
--- Run the following in the Supabase SQL editor to enable alias grouping.
-
-create table if not exists public.groups (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  created_at timestamptz not null default now()
-);
-
-alter table public.groups enable row level security;
-
-create policy "Users manage their groups"
-  on public.groups for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
-
-create index if not exists groups_user_id_idx on public.groups(user_id);
-
--- Allow group_id assignment on aliases
-alter table public.aliases
-  add column if not exists group_id uuid references public.groups(id) on delete set null;
-
--- UPDATE policy for aliases (needed for group assignment)
-create policy "Users can update their aliases"
-  on public.aliases for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
-

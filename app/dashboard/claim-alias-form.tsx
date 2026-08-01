@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2, Plus, X } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { ALIAS_DOMAIN } from "@/lib/config";
@@ -14,14 +14,6 @@ interface Props {
 export function ClaimAliasForm({ collapsed = false }: Props) {
   const [open, setOpen] = useState(!collapsed);
   const [prefix, setPrefix] = useState("");
-  const formRef = React.useRef<HTMLFormElement>(null);
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter" && state === "available") {
-      e.preventDefault();
-      formRef.current?.requestSubmit();
-    }
-  }
   const [state, setState] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
   const [message, setMessage] = useState("");
 
@@ -98,12 +90,16 @@ export function ClaimAliasForm({ collapsed = false }: Props) {
                 <X size={15} />
               </button>
             </div>
-            <form ref={formRef} action={claimAlias} className="claim-form-inline">
+            <form action={claimAlias} className="claim-form-inline">
               <input
                 name="prefix"
                 value={prefix}
                 onChange={(e) => setPrefix(e.target.value)}
-                onKeyDown={handleKeyDown}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && state === "available") {
+                    (e.currentTarget.form as HTMLFormElement).requestSubmit();
+                  }
+                }}
                 placeholder="alice123"
                 autoComplete="off"
                 required
