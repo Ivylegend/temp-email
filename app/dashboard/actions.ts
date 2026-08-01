@@ -41,3 +41,74 @@ export async function signOut() {
   await supabase.auth.signOut();
   redirect("/login");
 }
+
+// ─── Groups ──────────────────────────────────────────────────────────────────
+
+export async function createGroup(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const name = String(formData.get("name") || "").trim();
+  if (!name) redirect("/dashboard?error=Group+name+is+required");
+
+  const { error } = await supabase.from("groups").insert({ name, user_id: user.id });
+  if (error) redirect(`/dashboard?error=${encodeURIComponent(error.message)}`);
+
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
+}
+
+export async function deleteGroup(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const groupId = String(formData.get("group_id") || "");
+  const { error } = await supabase.from("groups").delete().eq("id", groupId);
+  if (error) redirect(`/dashboard?error=${encodeURIComponent(error.message)}`);
+
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
+}
+
+export async function assignAliasToGroup(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const aliasId = String(formData.get("alias_id") || "");
+  const groupId = String(formData.get("group_id") || "") || null;
+
+  const { error } = await supabase
+    .from("aliases")
+    .update({ group_id: groupId })
+    .eq("id", aliasId);
+
+  if (error) redirect(`/dashboard?error=${encodeURIComponent(error.message)}`);
+
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
+}
+
+export async function deleteAlias(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const aliasId = String(formData.get("alias_id") || "");
+  const { error } = await supabase.from("aliases").delete().eq("id", aliasId);
+
+  if (error) redirect(`/dashboard?error=${encodeURIComponent(error.message)}`);
+
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
+}
