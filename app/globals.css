@@ -379,29 +379,140 @@ a {
 /* ─── Messages ────────────────────────────────────────────── */
 
 .message-list {
-  display: grid;
-  gap: 12px;
-  padding: 20px 24px 32px;
+  padding: 12px 0 32px;
 }
 
-.message-item {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 16px 18px;
-  transition: box-shadow 0.15s;
+/* ── Preview list ──────────────────────────────────────────── */
+
+.msg-preview-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-.message-item:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+.msg-preview-row {
+  align-items: stretch;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  display: block;
+  padding: 14px 24px;
+  text-align: left;
+  transition: background 0.1s;
+  width: 100%;
 }
 
-.message-meta {
+.msg-preview-row:hover {
+  background: var(--panel-soft);
+}
+
+.msg-preview-top {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+.msg-preview-from {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msg-preview-date {
+  color: var(--muted);
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.msg-preview-subject {
+  align-items: center;
+  display: flex;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msg-preview-snippet {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Full email viewer ─────────────────────────────────────── */
+
+.msg-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.msg-back-btn {
+  align-items: center;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  color: var(--accent);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 500;
+  gap: 6px;
+  padding: 12px 24px;
+  text-align: left;
+  transition: background 0.1s;
+  width: 100%;
+}
+
+.msg-back-btn:hover {
+  background: var(--accent-bg);
+}
+
+.msg-viewer-header {
+  border-bottom: 1px solid var(--line);
+  padding: 18px 24px 16px;
+}
+
+.msg-viewer-subject {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 10px;
+}
+
+.msg-viewer-meta {
   color: var(--muted);
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  flex-direction: column;
   font-size: 12px;
+  gap: 4px;
+}
+
+.msg-viewer-meta-label {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.msg-viewer-body {
+  padding: 20px 24px;
+}
+
+.msg-viewer-actions {
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 10px;
+  padding: 14px 24px;
 }
 
 .spam-badge {
@@ -409,14 +520,9 @@ a {
   color: #9f2f14;
   display: inline-flex;
   gap: 4px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
-.message-subject {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 10px 0 6px;
-}
 
 .message-body {
   background: var(--panel-soft);

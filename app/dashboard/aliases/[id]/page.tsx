@@ -1,13 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ChevronLeft, ChevronRight, ShieldAlert, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { RefreshLink } from "@/components/refresh-link";
-import { SubmitButton } from "@/components/submit-button";
 import { ALIAS_DOMAIN } from "@/lib/config";
 import { createClient } from "@/lib/supabase/server";
 import type { Alias, Message } from "@/lib/types";
-import { deleteMessage } from "./actions";
-import { MessageBody } from "./message-body";
+import { MessageList } from "./message-list";
 
 export default async function AliasPage({
   params,
@@ -38,7 +36,7 @@ export default async function AliasPage({
     notFound();
   }
 
-  // Fetch all aliases (for prev/next nav) — same query as layout, will be cache-hit
+  // Fetch all aliases (for prev/next nav)
   const { data: allAliases } = await supabase
     .from("aliases")
     .select("id,prefix")
@@ -70,7 +68,7 @@ export default async function AliasPage({
       {/* ── Pane header ── */}
       <div className="pane-header">
         <div className="pane-header-left">
-          {/* Prev/Next nav — always visible, especially useful on mobile */}
+          {/* Prev / Next alias navigation */}
           <div className="alias-nav">
             {prevAlias ? (
               <Link
@@ -121,45 +119,10 @@ export default async function AliasPage({
       {query.error ? <div className="status error">{query.error}</div> : null}
       {query.success ? <div className="status success">{query.success}</div> : null}
 
-      {/* ── Message list ── */}
+      {/* ── Message list (preview → full view handled client-side) ── */}
       <div className="message-list">
-        {messageList.length ? (
-          messageList.map((message) => (
-            <article className="message-item" key={message.id}>
-              <div className="message-meta">
-                <span>From: {message.from_address || "Unknown"}</span>
-                {message.to_address ? <span>To: {message.to_address}</span> : null}
-                <span>{new Date(message.received_at).toLocaleString()}</span>
-                {isSpam(message) ? (
-                  <span className="spam-badge">
-                    <ShieldAlert size={14} />
-                    Spam flagged{message.spam_score ? ` (${message.spam_score})` : ""}
-                  </span>
-                ) : null}
-              </div>
-              <div className="message-subject">{message.subject || "(No subject)"}</div>
-
-              {/* Renders HTML in sandboxed iframe, plain text otherwise */}
-              <MessageBody html={message.body_html} text={message.body_text} />
-
-              <form action={deleteMessage} className="button-row section">
-                <input type="hidden" name="message_id" value={message.id} />
-                <input type="hidden" name="alias_id" value={id} />
-                <SubmitButton className="button danger" title="Delete message" pendingText="Deleting">
-                  <Trash2 size={18} />
-                  Delete
-                </SubmitButton>
-              </form>
-            </article>
-          ))
-        ) : (
-          <div className="empty">No messages received yet.</div>
-        )}
+        <MessageList messages={messageList} aliasId={id} />
       </div>
     </div>
   );
-}
-
-function isSpam(message: Message) {
-  return /spam|yes|fail/i.test(`${message.spam_verdict || ""} ${message.spam_score || ""}`);
 }
