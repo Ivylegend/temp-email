@@ -6,6 +6,7 @@ import { ALIAS_DOMAIN } from "@/lib/config";
 import { createClient } from "@/lib/supabase/server";
 import type { Alias, Message } from "@/lib/types";
 import { MessageList } from "./message-list";
+import { AutoRefresh } from "./auto-refresh";
 
 export default async function AliasPage({
   params,
@@ -118,6 +119,9 @@ export default async function AliasPage({
 
       {query.error ? <div className="status error">{query.error}</div> : null}
       {query.success ? <div className="status success">{query.success}</div> : null}
+
+      {/* Silently re-fetch server data every 15s so new emails appear automatically */}
+      <AutoRefresh intervalMs={15000} />
 
       {/* ── Message list (preview → full view handled client-side) ── */}
       <div className="message-list">

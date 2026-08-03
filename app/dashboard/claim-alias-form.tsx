@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Loader2, Plus, X } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { ALIAS_DOMAIN } from "@/lib/config";
@@ -13,9 +13,18 @@ interface Props {
 
 export function ClaimAliasForm({ collapsed = false }: Props) {
   const [open, setOpen] = useState(!collapsed);
+  const prefixInputRef = useRef<HTMLInputElement>(null);
   const [prefix, setPrefix] = useState("");
   const [state, setState] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
   const [message, setMessage] = useState("");
+
+  // Auto-focus the prefix input when the drawer opens
+  useEffect(() => {
+    if (open && collapsed) {
+      const t = setTimeout(() => prefixInputRef.current?.focus(), 40);
+      return () => clearTimeout(t);
+    }
+  }, [open, collapsed]);
 
   const normalized = useMemo(() => prefix.trim().toLowerCase(), [prefix]);
 
@@ -92,6 +101,7 @@ export function ClaimAliasForm({ collapsed = false }: Props) {
             </div>
             <form action={claimAlias} className="claim-form-inline">
               <input
+                ref={prefixInputRef}
                 name="prefix"
                 value={prefix}
                 onChange={(e) => setPrefix(e.target.value)}

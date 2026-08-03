@@ -9,6 +9,7 @@ import {
   FolderOpen,
   Inbox,
   MoreHorizontal,
+  Pencil,
   Plus,
   Trash2,
   X
@@ -67,15 +68,21 @@ function CtxMenu({
     return () => document.removeEventListener("mousedown", onDown);
   }, [onClose]);
 
+  // Position: try to open to the right of the button, fall back left if near edge
+  const left = Math.min(anchorRect.left, window.innerWidth - 196);
+
   return createPortal(
     <div
       ref={ref}
       className="alias-ctx-menu"
-      style={{ position: "fixed", top: anchorRect.bottom + 4, left: anchorRect.left, zIndex: 9999 }}
+      style={{ position: "fixed", top: anchorRect.bottom + 4, left, zIndex: 9999 }}
     >
+      {/* ── Group assignment ── */}
       {groups.length > 0 && (
         <>
-          <div className="alias-ctx-section">Move to group</div>
+          <div className="alias-ctx-section">
+            {aliasGroup ? "Move to group" : "Add to group"}
+          </div>
           {groups.map((g) => (
             <button
               key={g.id}
@@ -85,21 +92,29 @@ function CtxMenu({
             >
               <FolderOpen size={13} />
               {g.name}
+              {aliasGroup?.id === g.id && (
+                <span style={{ marginLeft: "auto", fontSize: 10, opacity: 0.6 }}>current</span>
+              )}
             </button>
           ))}
-          {aliasGroup && (
-            <button
-              type="button"
-              className="alias-ctx-item"
-              onClick={() => { onRemove(); onClose(); }}
-            >
-              <X size={13} />
-              Remove from group
-            </button>
-          )}
           <div className="alias-ctx-divider" />
         </>
       )}
+
+      {/* ── Remove from group ── */}
+      {aliasGroup && (
+        <button
+          type="button"
+          className="alias-ctx-item"
+          onClick={() => { onRemove(); onClose(); }}
+        >
+          <X size={13} />
+          Remove from &ldquo;{aliasGroup.name}&rdquo;
+        </button>
+      )}
+
+      {/* ── Delete alias ── */}
+      {aliasGroup && <div className="alias-ctx-divider" />}
       <form action={deleteAlias}>
         <input type="hidden" name="alias_id" value={alias.id} />
         <button type="submit" className="alias-ctx-item danger">
@@ -125,11 +140,22 @@ export function AliasSidebar({ aliases, domain, maxAliases }: Props) {
 
   const [groups, setGroups] = useState<LocalGroup[]>([]);
   const [mounted, setMounted] = useState(false);
+
+  // Which groups are expanded (controlled, so we don't rely on <details>)
+  const [openGroupIds, setOpenGroupIds] = useState<Set<string>>(new Set());
+
+  // New group form
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
-  const [ctxMenu, setCtxMenu] = useState<{ aliasId: string; rect: DOMRect } | null>(null);
-
   const newGroupInputRef = useRef<HTMLInputElement>(null);
+
+  // Inline rename
+  const [renameGroupId, setRenameGroupId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  // Context menu
+  const [ctxMenu, setCtxMenu] = useState<{ aliasId: string; rect: DOMRect } | null>(null);
 
   useEffect(() => {
     setGroups(loadGroups());
@@ -143,6 +169,16 @@ export function AliasSidebar({ aliases, domain, maxAliases }: Props) {
     }
   }, [newGroupOpen]);
 
+  useEffect(() => {
+    if (renameGroupId) {
+      const t = setTimeout(() => {
+        const input = renameInputRef.current;
+        if (input) { input.focus(); input.select(); }
+      }, 30);
+      return () => clearTimeout(t);
+    }
+  }, [renameGroupId]);
+
   /* ── Group mutations ── */
   const updateGroups = useCallback((next: LocalGroup[]) => {
     setGroups(next);
@@ -152,14 +188,46 @@ export function AliasSidebar({ aliases, domain, maxAliases }: Props) {
   function createGroup() {
     const name = newGroupName.trim();
     if (!name) return;
-    updateGroups([...groups, { id: crypto.randomUUID(), name, aliasIds: [] }]);
+    const newGroup: LocalGroup = { id: crypto.randomUUID(), name, aliasIds: [] };
+    updateGroups([...groups, newGroup]);
+    // Auto-open the new group
+    setOpenGroupIds((prev) => new Set([...prev, newGroup.id]));
     setNewGroupName("");
     setNewGroupOpen(false);
+  }
+
+  function startRename(group: LocalGroup) {
+    setRenameGroupId(group.id);
+    setRenameValue(group.name);
+  }
+
+  function saveRename() {
+    if (!renameGroupId) return;
+    const name = renameValue.trim();
+    if (name) {
+      updateGroups(groups.map((g) => (g.id === renameGroupId ? { ...g, name } : g)));
+    }
+    setRenameGroupId(null);
+    setRenameValue("");
+  }
+
+  function cancelRename() {
+    setRenameGroupId(null);
+    setRenameValue("");
   }
 
   function deleteGroup(group: LocalGroup) {
     if (!confirm(`Delete group "${group.name}"? Aliases will become ungrouped.`)) return;
     updateGroups(groups.filter((g) => g.id !== group.id));
+    setOpenGroupIds((prev) => { const next = new Set(prev); next.delete(group.id); return next; });
+  }
+
+  function toggleGroup(groupId: string) {
+    setOpenGroupIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId); else next.add(groupId);
+      return next;
+    });
   }
 
   function assignToGroup(aliasId: string, groupId: string) {
@@ -190,7 +258,6 @@ export function AliasSidebar({ aliases, domain, maxAliases }: Props) {
     return (mounted ? groups.find((g) => g.aliasIds.includes(aliasId)) : undefined) ?? null;
   }
 
-  /* ── Context menu state ── */
   const ctxAlias = ctxMenu ? (aliases.find((a) => a.id === ctxMenu.aliasId) ?? null) : null;
   const ctxGroup = ctxAlias ? getAliasGroup(ctxAlias.id) : null;
 
@@ -226,6 +293,86 @@ export function AliasSidebar({ aliases, domain, maxAliases }: Props) {
     );
   }
 
+  /* ── Group row ── */
+  function GroupRow({ group }: { group: LocalGroup }) {
+    const isOpen = openGroupIds.has(group.id);
+    const isRenaming = renameGroupId === group.id;
+    const groupAliases = getGroupAliases(group);
+
+    return (
+      <div className="sidebar-group">
+        {/* Header */}
+        <div
+          className="sidebar-group-header"
+          onClick={() => !isRenaming && toggleGroup(group.id)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") toggleGroup(group.id); }}
+        >
+          <ChevronRight
+            size={12}
+            className={`group-chevron${isOpen ? " open" : ""}`}
+          />
+          <FolderOpen size={13} className="group-folder-icon" />
+
+          {/* Inline rename input OR group name */}
+          {isRenaming ? (
+            <input
+              ref={renameInputRef}
+              className="group-rename-input"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === "Enter") saveRename();
+                if (e.key === "Escape") cancelRename();
+              }}
+              onBlur={saveRename}
+            />
+          ) : (
+            <span className="sidebar-group-name">{group.name}</span>
+          )}
+
+          <span className="sidebar-group-count">{groupAliases.length}</span>
+
+          {/* Action buttons — shown on hover */}
+          {!isRenaming && (
+            <>
+              <button
+                type="button"
+                className="group-action-btn"
+                title="Rename group"
+                onClick={(e) => { e.stopPropagation(); startRename(group); }}
+              >
+                <Pencil size={11} />
+              </button>
+              <button
+                type="button"
+                className="group-action-btn group-delete-btn"
+                title="Delete group"
+                onClick={(e) => { e.stopPropagation(); deleteGroup(group); }}
+              >
+                <X size={11} />
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Aliases under this group (collapsible) */}
+        {isOpen && (
+          <div className="sidebar-group-body">
+            {groupAliases.length ? (
+              groupAliases.map((alias) => <AliasRow key={alias.id} alias={alias} indented />)
+            ) : (
+              <div className="sidebar-group-empty">Use ··· on an alias to add it here</div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   /* ── Render ── */
   return (
     <div className="sidebar-body">
@@ -245,39 +392,7 @@ export function AliasSidebar({ aliases, domain, maxAliases }: Props) {
         ))}
 
         {/* Groups */}
-        {mounted &&
-          groups.map((group) => {
-            const groupAliases = getGroupAliases(group);
-            return (
-              <details key={group.id} className="sidebar-group">
-                <summary className="sidebar-group-header">
-                  <ChevronRight size={12} className="group-chevron" />
-                  <FolderOpen size={13} className="group-folder-icon" />
-                  <span className="sidebar-group-name">{group.name}</span>
-                  <span className="sidebar-group-count">{groupAliases.length}</span>
-                  <button
-                    type="button"
-                    className="group-delete-btn"
-                    title="Delete group"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      deleteGroup(group);
-                    }}
-                  >
-                    <X size={11} />
-                  </button>
-                </summary>
-                <div className="sidebar-group-body">
-                  {groupAliases.length ? (
-                    groupAliases.map((alias) => <AliasRow key={alias.id} alias={alias} indented />)
-                  ) : (
-                    <div className="sidebar-group-empty">Use ··· on an alias to add it here</div>
-                  )}
-                </div>
-              </details>
-            );
-          })}
+        {mounted && groups.map((group) => <GroupRow key={group.id} group={group} />)}
       </nav>
 
       {/* Floating footer — always visible, never scrolls away */}
@@ -293,10 +408,7 @@ export function AliasSidebar({ aliases, domain, maxAliases }: Props) {
               onChange={(e) => setNewGroupName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") createGroup();
-                if (e.key === "Escape") {
-                  setNewGroupOpen(false);
-                  setNewGroupName("");
-                }
+                if (e.key === "Escape") { setNewGroupOpen(false); setNewGroupName(""); }
               }}
             />
             <div className="new-group-btns">
@@ -306,10 +418,7 @@ export function AliasSidebar({ aliases, domain, maxAliases }: Props) {
               <button
                 type="button"
                 className="icon-btn-ghost"
-                onClick={() => {
-                  setNewGroupOpen(false);
-                  setNewGroupName("");
-                }}
+                onClick={() => { setNewGroupOpen(false); setNewGroupName(""); }}
               >
                 <X size={14} />
               </button>
