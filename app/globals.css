@@ -96,6 +96,13 @@ a {
   padding: 6px 0;
 }
 
+.sidebar-limit {
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  padding: 8px 14px;
+}
+
 /* ─── Alias row (link + ··· button) ──────────────────────── */
 
 .alias-row-wrap {

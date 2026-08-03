@@ -29,6 +29,13 @@ create table if not exists public.messages (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.user_alias_limits (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  max_aliases integer not null check (max_aliases > 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.messages add column if not exists to_address text;
 alter table public.messages add column if not exists raw_headers jsonb;
 alter table public.messages add column if not exists spam_verdict text;
@@ -37,6 +44,7 @@ alter table public.messages add column if not exists spam_score text;
 alter table public.profiles enable row level security;
 alter table public.aliases enable row level security;
 alter table public.messages enable row level security;
+alter table public.user_alias_limits enable row level security;
 
 create policy "Users can read their own profile"
   on public.profiles for select
@@ -83,6 +91,10 @@ create policy "Users can delete messages for their aliases"
     )
   );
 
+create policy "Users can read their alias limit"
+  on public.user_alias_limits for select
+  using (auth.uid() = user_id);
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -101,8 +113,46 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
+create or replace function public.enforce_alias_limit()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  configured_limit integer;
+  current_aliases integer;
+begin
+  select max_aliases
+    into configured_limit
+    from public.user_alias_limits
+    where user_id = new.user_id;
+
+  if configured_limit is null then
+    return new;
+  end if;
+
+  select count(*)
+    into current_aliases
+    from public.aliases
+    where user_id = new.user_id;
+
+  if current_aliases >= configured_limit then
+    raise exception 'Alias limit reached for this account.'
+      using errcode = 'P0001';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists enforce_alias_limit_before_insert on public.aliases;
+create trigger enforce_alias_limit_before_insert
+  before insert on public.aliases
+  for each row execute procedure public.enforce_alias_limit();
+
 create index if not exists aliases_user_id_idx on public.aliases(user_id);
 create index if not exists messages_alias_id_received_at_idx on public.messages(alias_id, received_at desc);
+create index if not exists user_alias_limits_user_id_idx on public.user_alias_limits(user_id);
 
 create extension if not exists pg_cron with schema extensions;
 

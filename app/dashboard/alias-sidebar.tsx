@@ -116,9 +116,10 @@ function CtxMenu({
 interface Props {
   aliases: Alias[];
   domain: string;
+  maxAliases?: number;
 }
 
-export function AliasSidebar({ aliases, domain }: Props) {
+export function AliasSidebar({ aliases, domain, maxAliases }: Props) {
   const params = useParams<{ id?: string }>();
   const activeId = params?.id;
 
@@ -228,6 +229,12 @@ export function AliasSidebar({ aliases, domain }: Props) {
   /* ── Render ── */
   return (
     <div className="sidebar-body">
+      {maxAliases ? (
+        <div className="sidebar-limit">
+          {aliases.length} of {maxAliases} aliases used
+        </div>
+      ) : null}
+
       {/* Scrollable area */}
       <nav className="sidebar-scroll-area">
         {!aliases?.length && <div className="sidebar-empty">No aliases yet.</div>}

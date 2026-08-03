@@ -28,7 +28,12 @@ export async function claimAlias(formData: FormData) {
   });
 
   if (insertError) {
-    const message = insertError.code === "23505" ? "That alias is already claimed." : insertError.message;
+    const message =
+      insertError.code === "23505"
+        ? "That alias is already claimed."
+        : insertError.message.includes("Alias limit reached")
+          ? "This account has reached its 100 alias limit."
+          : insertError.message;
     redirect(`/dashboard?error=${encodeURIComponent(message)}`);
   }
 

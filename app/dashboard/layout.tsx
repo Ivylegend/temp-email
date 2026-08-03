@@ -31,6 +31,19 @@ export default async function DashboardLayout({
     throw new Error(error.message);
   }
 
+  const { data: aliasLimit, error: aliasLimitError } = await supabase
+    .from("user_alias_limits")
+    .select("max_aliases")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (aliasLimitError) {
+    throw new Error(aliasLimitError.message);
+  }
+
+  const aliasesList = (aliases ?? []) as Alias[];
+  const maxAliases = aliasLimit?.max_aliases as number | undefined;
+
   return (
     <div className="split-shell">
       {/* ── Left sidebar ── */}
@@ -50,7 +63,7 @@ export default async function DashboardLayout({
         <ClaimAliasForm collapsed />
 
         {/* Alias list */}
-        <AliasSidebar aliases={aliases as Alias[]} domain={ALIAS_DOMAIN} />
+        <AliasSidebar aliases={aliasesList} domain={ALIAS_DOMAIN} maxAliases={maxAliases} />
       </aside>
 
       {/* ── Right content pane ── */}
