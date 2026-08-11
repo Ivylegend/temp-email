@@ -1,22 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Loader2, Plus, X } from "lucide-react";
-import { SubmitButton } from "@/components/submit-button";
+import { ClipLoader } from "react-spinners";
 import { ALIAS_DOMAIN } from "@/lib/config";
-import { claimAlias } from "./actions";
 
 interface Props {
-  /** When true, the form hides behind a + button and slides open on click */
   collapsed?: boolean;
+  onClaim: (prefix: string) => Promise<void>;
+  checkAvailability: (prefix: string) => Promise<{ available: boolean; error?: string }>;
 }
 
-export function ClaimAliasForm({ collapsed = false }: Props) {
+export function ClaimAliasForm({ collapsed = false, onClaim, checkAvailability }: Props) {
   const [open, setOpen] = useState(!collapsed);
   const prefixInputRef = useRef<HTMLInputElement>(null);
   const [prefix, setPrefix] = useState("");
   const [state, setState] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   // Auto-focus the prefix input when the drawer opens
   useEffect(() => {
@@ -39,24 +40,25 @@ export function ClaimAliasForm({ collapsed = false }: Props) {
     const timer = window.setTimeout(async () => {
       setState("checking");
       try {
-        const response = await fetch(`/api/aliases/check?prefix=${encodeURIComponent(normalized)}`, {
-          signal: controller.signal
-        });
-        const payload = await response.json();
+        const payload = await checkAvailability(normalized);
 
-        if (!response.ok) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        if (payload.error) {
           setState("invalid");
-          setMessage(payload.error || "Could not check that prefix.");
+          setMessage(payload.error);
           return;
         }
 
         setState(payload.available ? "available" : "taken");
         setMessage(
           payload.available
-            ? `${payload.prefix}@${ALIAS_DOMAIN} is available.`
+            ? `${normalized}@${ALIAS_DOMAIN} is available.`
             : "That alias is already claimed."
         );
-      } catch (error) {
+      } catch {
         if (!controller.signal.aborted) {
           setState("invalid");
           setMessage("Could not check that prefix.");
@@ -68,7 +70,28 @@ export function ClaimAliasForm({ collapsed = false }: Props) {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [normalized]);
+  }, [checkAvailability, normalized]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (state !== "available") {
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await onClaim(normalized);
+      setPrefix("");
+      setState("idle");
+      setMessage("");
+      if (collapsed) {
+        setOpen(false);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   if (collapsed) {
     return (
@@ -99,47 +122,23 @@ export function ClaimAliasForm({ collapsed = false }: Props) {
                 <X size={15} />
               </button>
             </div>
-            <form action={claimAlias} className="claim-form-inline">
-              <input
-                ref={prefixInputRef}
-                name="prefix"
-                value={prefix}
-                onChange={(e) => setPrefix(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && state === "available") {
-                    (e.currentTarget.form as HTMLFormElement).requestSubmit();
-                  }
-                }}
-                placeholder="alice123"
-                autoComplete="off"
-                required
-                className="claim-input"
-              />
-              <div className="claim-domain-label">@{ALIAS_DOMAIN}</div>
-              {message ? (
-                <span className={`hint ${state}`}>
-                  {iconForState(state)} {message}
-                </span>
-              ) : null}
-              <SubmitButton
-                disabled={state === "checking" || state === "taken" || state === "invalid"}
-                title="Claim alias"
-                pendingText="Claiming…"
-                className="button claim-submit-btn"
-              >
-                <Plus size={15} />
-                Claim
-              </SubmitButton>
-            </form>
+            <AliasFormBody
+              handleSubmit={handleSubmit}
+              message={message}
+              prefixInputRef={prefixInputRef}
+              prefix={prefix}
+              setPrefix={setPrefix}
+              state={state}
+              submitting={submitting}
+            />
           </div>
         )}
       </div>
     );
   }
 
-  // Original non-collapsed layout (kept for backwards compat)
   return (
-    <form action={claimAlias} className="claim-form">
+    <form onSubmit={handleSubmit} className="claim-form">
       <label>
         New prefix
         <input
@@ -152,15 +151,84 @@ export function ClaimAliasForm({ collapsed = false }: Props) {
         />
         {message ? <span className={`hint ${state}`}>{iconForState(state)} {message}</span> : null}
       </label>
-      <SubmitButton
-        disabled={state === "checking" || state === "taken" || state === "invalid"}
-        title="Claim alias"
-        pendingText="Claiming"
-      >
-        <Plus size={18} />
-        Claim
-      </SubmitButton>
+      <SubmitAliasButton state={state} submitting={submitting} />
     </form>
+  );
+}
+
+function AliasFormBody({
+  handleSubmit,
+  message,
+  prefix,
+  prefixInputRef,
+  setPrefix,
+  state,
+  submitting
+}: {
+  handleSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  message: string;
+  prefix: string;
+  prefixInputRef?: RefObject<HTMLInputElement | null>;
+  setPrefix: (value: string) => void;
+  state: "idle" | "checking" | "available" | "taken" | "invalid";
+  submitting: boolean;
+}) {
+  return (
+    <form onSubmit={handleSubmit} className="claim-form-inline">
+      <input
+        ref={prefixInputRef}
+        name="prefix"
+        value={prefix}
+        onChange={(event) => setPrefix(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && state === "available") {
+            (event.currentTarget.form as HTMLFormElement).requestSubmit();
+          }
+        }}
+        placeholder="alice123"
+        autoComplete="off"
+        required
+        className="claim-input"
+      />
+      <div className="claim-domain-label">@{ALIAS_DOMAIN}</div>
+      {message ? (
+        <span className={`hint ${state}`}>
+          {iconForState(state)} {message}
+        </span>
+      ) : null}
+      <SubmitAliasButton className="button claim-submit-btn" state={state} submitting={submitting} />
+    </form>
+  );
+}
+
+function SubmitAliasButton({
+  className = "button",
+  state,
+  submitting
+}: {
+  className?: string;
+  state: string;
+  submitting: boolean;
+}) {
+  return (
+    <button
+      disabled={submitting || state === "checking" || state === "taken" || state === "invalid"}
+      title="Claim alias"
+      type="submit"
+      className={className}
+    >
+      {submitting ? (
+        <>
+          <ClipLoader color="currentColor" size={15} />
+          Claiming
+        </>
+      ) : (
+        <>
+          <Plus size={15} />
+          Claim
+        </>
+      )}
+    </button>
   );
 }
 

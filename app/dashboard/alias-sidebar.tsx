@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
-import { useParams } from "next/navigation";
 import {
   ChevronRight,
   FolderOpen,
@@ -15,7 +13,6 @@ import {
   X
 } from "lucide-react";
 import type { Alias } from "@/lib/types";
-import { deleteAlias } from "./actions";
 
 /* ── Local group type (stored in localStorage) ─────────────── */
 interface LocalGroup {
@@ -44,7 +41,9 @@ interface CtxMenuProps {
   groups: LocalGroup[];
   aliasGroup: LocalGroup | null;
   anchorRect: DOMRect;
+  deletingAliasId?: string | null;
   onAssign: (groupId: string) => void;
+  onDeleteAlias: (aliasId: string) => Promise<void>;
   onRemove: () => void;
   onClose: () => void;
 }
@@ -54,7 +53,9 @@ function CtxMenu({
   groups,
   aliasGroup,
   anchorRect,
+  deletingAliasId,
   onAssign,
+  onDeleteAlias,
   onRemove,
   onClose
 }: CtxMenuProps) {
@@ -100,7 +101,6 @@ function CtxMenu({
           <div className="alias-ctx-divider" />
         </>
       )}
-
       {/* ── Remove from group ── */}
       {aliasGroup && (
         <button
@@ -115,13 +115,18 @@ function CtxMenu({
 
       {/* ── Delete alias ── */}
       {aliasGroup && <div className="alias-ctx-divider" />}
-      <form action={deleteAlias}>
-        <input type="hidden" name="alias_id" value={alias.id} />
-        <button type="submit" className="alias-ctx-item danger">
-          <Trash2 size={13} />
-          Delete alias
-        </button>
-      </form>
+      <button
+        type="button"
+        className="alias-ctx-item danger"
+        disabled={deletingAliasId === alias.id}
+        onClick={async () => {
+          await onDeleteAlias(alias.id);
+          onClose();
+        }}
+      >
+        <Trash2 size={13} />
+        {deletingAliasId === alias.id ? "Deleting" : "Delete alias"}
+      </button>
     </div>,
     document.body
   );
@@ -130,14 +135,23 @@ function CtxMenu({
 /* ── Main sidebar ──────────────────────────────────────────── */
 interface Props {
   aliases: Alias[];
+  deletingAliasId?: string | null;
   domain: string;
   maxAliases?: number;
+  selectedAliasId?: string | null;
+  onDeleteAlias: (aliasId: string) => Promise<void>;
+  onSelectAlias: (aliasId: string) => void;
 }
 
-export function AliasSidebar({ aliases, domain, maxAliases }: Props) {
-  const params = useParams<{ id?: string }>();
-  const activeId = params?.id;
-
+export function AliasSidebar({
+  aliases,
+  deletingAliasId,
+  domain,
+  maxAliases,
+  selectedAliasId,
+  onDeleteAlias,
+  onSelectAlias
+}: Props) {
   const [groups, setGroups] = useState<LocalGroup[]>([]);
   const [mounted, setMounted] = useState(false);
 
@@ -263,20 +277,21 @@ export function AliasSidebar({ aliases, domain, maxAliases }: Props) {
 
   /* ── Alias row ── */
   function AliasRow({ alias, indented = false }: { alias: Alias; indented?: boolean }) {
-    const isActive = alias.id === activeId;
+    const isActive = alias.id === selectedAliasId;
     return (
       <div className={`alias-row-wrap${indented ? " indented" : ""}`}>
-        <Link
-          href={`/dashboard/aliases/${alias.id}`}
+        <button
+          type="button"
           className={`sidebar-alias-item${isActive ? " active" : ""}`}
           title={`${alias.prefix}@${domain}`}
+          onClick={() => onSelectAlias(alias.id)}
         >
           <Inbox size={14} className="sidebar-alias-icon" />
           <div className="sidebar-alias-info">
             <div className="sidebar-alias-prefix">{alias.prefix}</div>
             <div className="sidebar-alias-domain">@{domain}</div>
           </div>
-        </Link>
+        </button>
         <button
           type="button"
           className="alias-more-btn"
@@ -439,7 +454,9 @@ export function AliasSidebar({ aliases, domain, maxAliases }: Props) {
           groups={groups}
           aliasGroup={ctxGroup}
           anchorRect={ctxMenu.rect}
+          deletingAliasId={deletingAliasId}
           onAssign={(groupId) => assignToGroup(ctxAlias.id, groupId)}
+          onDeleteAlias={onDeleteAlias}
           onRemove={() => removeFromGroup(ctxAlias.id)}
           onClose={() => setCtxMenu(null)}
         />

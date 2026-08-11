@@ -1,23 +1,58 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { KeyRound, LogIn } from "lucide-react";
+import { ClipLoader } from "react-spinners";
 import { PasswordField } from "@/components/password-field";
-import { SubmitButton } from "@/components/submit-button";
 import { APP_NAME } from "@/lib/config";
-import { createClient } from "@/lib/supabase/server";
-import { signIn } from "./actions";
+import { createClient } from "@/lib/supabase/browser";
 
-export default async function LoginPage({
-  searchParams
-}: {
-  searchParams: { error?: string };
-}) {
-  const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  if (user) {
-    redirect("/dashboard");
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        router.replace("/dashboard");
+        return;
+      }
+      setCheckingSession(false);
+    });
+  }, [router]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setSubmitting(true);
+
+    const formData = new FormData(event.currentTarget);
+    const password = String(formData.get("password") || "");
+    const supabase = createClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+
+    setSubmitting(false);
+
+    if (signInError) {
+      setError(signInError.message);
+      return;
+    }
+
+    router.replace("/dashboard");
+  }
+
+  if (checkingSession) {
+    return (
+      <main className="loading-panel">
+        <ClipLoader color="currentColor" size={18} />
+        Loading
+      </main>
+    );
   }
 
   return (
@@ -26,20 +61,36 @@ export default async function LoginPage({
         <div className="brand">{APP_NAME}</div>
         <h1>Sign in</h1>
         <p className="muted">Invite-only access for the friend group.</p>
-        <form action={signIn} className="form-grid">
+        <form onSubmit={handleSubmit} className="form-grid">
           <label>
             Email
-            <input name="email" type="email" autoComplete="email" required />
+            <input
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
           </label>
           <PasswordField />
-          <SubmitButton title="Sign in" pendingText="Signing in">
-            <LogIn size={18} />
-            Sign in
-          </SubmitButton>
+          <button className="button" type="submit" title="Sign in" disabled={submitting}>
+            {submitting ? (
+              <>
+                <ClipLoader color="currentColor" size={16} />
+                Signing in
+              </>
+            ) : (
+              <>
+                <LogIn size={18} />
+                Sign in
+              </>
+            )}
+          </button>
         </form>
-        {searchParams.error ? (
+        {error ? (
           <div className="status error">
-            <KeyRound size={16} /> {searchParams.error}
+            <KeyRound size={16} /> {error}
           </div>
         ) : null}
       </section>

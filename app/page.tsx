@@ -1,11 +1,24 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+"use client";
 
-export default async function Home() {
-  const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { ClipLoader } from "react-spinners";
+import { createClient } from "@/lib/supabase/browser";
 
-  redirect(user ? "/dashboard" : "/login");
+export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      router.replace(data.user ? "/dashboard" : "/login");
+    });
+  }, [router]);
+
+  return (
+    <main className="loading-panel">
+      <ClipLoader color="currentColor" size={18} />
+      Loading
+    </main>
+  );
 }

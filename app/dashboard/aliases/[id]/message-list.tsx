@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import { ArrowLeft, ShieldAlert, Trash2 } from "lucide-react";
-import { SubmitButton } from "@/components/submit-button";
+import { ClipLoader } from "react-spinners";
 import type { Message } from "@/lib/types";
-import { deleteMessage } from "./actions";
 import { MessageBody } from "./message-body";
 
 interface Props {
   messages: Message[];
-  aliasId: string;
+  deletingMessageId?: string | null;
+  onDeleteMessage: (messageId: string) => Promise<void>;
 }
 
 /** Returns a plain-text snippet of the email body for preview rows */
@@ -40,7 +40,7 @@ function formatDate(iso: string) {
     : d.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
-export function MessageList({ messages, aliasId }: Props) {
+export function MessageList({ messages, deletingMessageId, onDeleteMessage }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
   const openMessage = messages.find((m) => m.id === openId) ?? null;
 
@@ -90,18 +90,30 @@ export function MessageList({ messages, aliasId }: Props) {
         </div>
 
         {/* Delete */}
-        <form action={deleteMessage} className="msg-viewer-actions">
-          <input type="hidden" name="message_id" value={openMessage.id} />
-          <input type="hidden" name="alias_id" value={aliasId} />
-          <SubmitButton
+        <div className="msg-viewer-actions">
+          <button
             className="button danger"
             title="Delete message"
-            pendingText="Deleting…"
+            type="button"
+            disabled={deletingMessageId === openMessage.id}
+            onClick={async () => {
+              await onDeleteMessage(openMessage.id);
+              setOpenId(null);
+            }}
           >
-            <Trash2 size={15} />
-            Delete
-          </SubmitButton>
-        </form>
+            {deletingMessageId === openMessage.id ? (
+              <>
+                <ClipLoader color="currentColor" size={15} />
+                Deleting
+              </>
+            ) : (
+              <>
+                <Trash2 size={15} />
+                Delete
+              </>
+            )}
+          </button>
+        </div>
       </div>
     );
   }

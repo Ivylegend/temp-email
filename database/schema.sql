@@ -150,6 +150,22 @@ create trigger enforce_alias_limit_before_insert
   before insert on public.aliases
   for each row execute procedure public.enforce_alias_limit();
 
+create or replace function public.is_alias_available(candidate_prefix text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select not exists (
+    select 1
+    from public.aliases
+    where prefix = lower(trim(candidate_prefix))
+  );
+$$;
+
+grant execute on function public.is_alias_available(text) to authenticated;
+
 create index if not exists aliases_user_id_idx on public.aliases(user_id);
 create index if not exists messages_alias_id_received_at_idx on public.messages(alias_id, received_at desc);
 create index if not exists user_alias_limits_user_id_idx on public.user_alias_limits(user_id);
