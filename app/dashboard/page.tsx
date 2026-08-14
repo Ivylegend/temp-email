@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Inbox, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, Inbox, LogOut, Search, X } from "lucide-react";
 import { ClipLoader } from "react-spinners";
 import { RefreshLink } from "@/components/refresh-link";
 import { ALIAS_DOMAIN, APP_NAME } from "@/lib/config";
@@ -17,12 +17,68 @@ type UserAliasLimit = {
   max_aliases: number;
 };
 
+type SearchFilter = "all" | "free-bonus" | "first-move-today" | "deposit-bonus-open";
+
+const SEARCH_FILTERS: Array<{ key: SearchFilter; label: string }> = [
+  { key: "all", label: "All mail" },
+  { key: "free-bonus", label: "Free bonus" },
+  { key: "first-move-today", label: "First move today" },
+  { key: "deposit-bonus-open", label: "$10 no withdrawal" }
+];
+
+const FREE_BONUS_PHRASE = "claim your free bonus & start playing";
+const FIRST_MOVE_PHRASE = "your first move starts here";
+const DEPOSIT_BONUS_PHRASE = "free $10 deposit bonus for you!";
+
+function messageText(message: Message, alias?: Alias) {
+  return [
+    alias ? `${alias.prefix}@${ALIAS_DOMAIN}` : "",
+    message.to_address,
+    message.from_address,
+    message.subject,
+    message.body_text,
+    message.body_html?.replace(/<[^>]*>/g, " ")
+  ]
+    .filter(Boolean)
+    .join("\n")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function messageSnippet(message: Message, maxLen = 130) {
+  const raw =
+    message.body_text?.trim() ||
+    message.body_html?.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() ||
+    "";
+  return raw.length > maxLen ? raw.slice(0, maxLen) + "..." : raw || "(No content)";
+}
+
+function isReceivedToday(message: Message) {
+  const received = new Date(message.received_at);
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return received >= start && received < end;
+}
+
+function formatSearchDate(iso: string) {
+  return new Date(iso).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [aliases, setAliases] = useState<Alias[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [allMessages, setAllMessages] = useState<Message[]>([]);
   const [selectedAliasId, setSelectedAliasId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchFilter, setSearchFilter] = useState<SearchFilter>("all");
   const [userEmail, setUserEmail] = useState("");
   const [maxAliases, setMaxAliases] = useState<number | undefined>();
   const [status, setStatus] = useState<{ type: "error" | "success"; message: string } | null>(null);
@@ -36,6 +92,14 @@ export default function DashboardPage() {
   const selectedIndex = selectedAliasId ? aliases.findIndex((alias) => alias.id === selectedAliasId) : -1;
   const prevAlias = selectedIndex > 0 ? aliases[selectedIndex - 1] : null;
   const nextAlias = selectedIndex >= 0 && selectedIndex < aliases.length - 1 ? aliases[selectedIndex + 1] : null;
+  const aliasById = useMemo(() => new Map(aliases.map((alias) => [alias.id, alias])), [aliases]);
+  const selectedMessages = useMemo(
+    () =>
+      allMessages
+        .filter((message) => message.alias_id === selectedAliasId)
+        .sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime()),
+    [allMessages, selectedAliasId]
+  );
 
   const loadAliases = useCallback(async () => {
     const { data, error } = await supabase
@@ -55,7 +119,42 @@ export default function DashboardPage() {
       }
       return nextAliases[0]?.id ?? null;
     });
+    return nextAliases;
   }, [supabase]);
+
+  const loadMessagesForAliases = useCallback(
+    async (nextAliases: Alias[]) => {
+      const aliasIds = nextAliases.map((alias) => alias.id);
+
+      if (!aliasIds.length) {
+        setAllMessages([]);
+        return [];
+      }
+
+      const nextMessages: Message[] = [];
+
+      for (let index = 0; index < aliasIds.length; index += 100) {
+        const { data, error } = await supabase
+          .from("messages")
+          .select(
+            "id,alias_id,to_address,from_address,subject,body_text,body_html,spam_verdict,spam_score,received_at,created_at"
+          )
+          .in("alias_id", aliasIds.slice(index, index + 100))
+          .order("received_at", { ascending: false });
+
+        if (error) {
+          throw error;
+        }
+
+        nextMessages.push(...((data ?? []) as Message[]));
+      }
+
+      nextMessages.sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime());
+      setAllMessages(nextMessages);
+      return nextMessages;
+    },
+    [supabase]
+  );
 
   const loadAliasLimit = useCallback(
     async (userId: string) => {
@@ -74,42 +173,18 @@ export default function DashboardPage() {
     [supabase]
   );
 
-  const loadMessages = useCallback(
-    async (aliasId: string | null) => {
-      if (!aliasId) {
-        setMessages([]);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("messages")
-        .select(
-          "id,alias_id,to_address,from_address,subject,body_text,body_html,spam_verdict,spam_score,received_at,created_at"
-        )
-        .eq("alias_id", aliasId)
-        .order("received_at", { ascending: false });
-
-      if (error) {
-        throw error;
-      }
-
-      setMessages((data ?? []) as Message[]);
-    },
-    [supabase]
-  );
-
   const refreshDashboard = useCallback(async () => {
     setRefreshing(true);
     setStatus(null);
     try {
-      await loadAliases();
-      await loadMessages(selectedAliasId);
+      const nextAliases = await loadAliases();
+      await loadMessagesForAliases(nextAliases);
     } catch (error) {
       setStatus({ type: "error", message: error instanceof Error ? error.message : "Could not refresh." });
     } finally {
       setRefreshing(false);
     }
-  }, [loadAliases, loadMessages, selectedAliasId]);
+  }, [loadAliases, loadMessagesForAliases]);
 
   useEffect(() => {
     let active = true;
@@ -130,7 +205,8 @@ export default function DashboardPage() {
 
       setUserEmail(user.email ?? "");
       try {
-        await Promise.all([loadAliases(), loadAliasLimit(user.id)]);
+        const [nextAliases] = await Promise.all([loadAliases(), loadAliasLimit(user.id)]);
+        await loadMessagesForAliases(nextAliases);
       } catch (error) {
         setStatus({ type: "error", message: error instanceof Error ? error.message : "Could not load dashboard." });
       } finally {
@@ -154,13 +230,60 @@ export default function DashboardPage() {
       active = false;
       subscription.unsubscribe();
     };
-  }, [loadAliasLimit, loadAliases, router, supabase]);
+  }, [loadAliasLimit, loadAliases, loadMessagesForAliases, router, supabase]);
 
-  useEffect(() => {
-    loadMessages(selectedAliasId).catch((error) => {
-      setStatus({ type: "error", message: error instanceof Error ? error.message : "Could not load messages." });
+  const searchResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const byAlias = new Map<string, Message[]>();
+
+    for (const message of allMessages) {
+      if (!byAlias.has(message.alias_id)) {
+        byAlias.set(message.alias_id, []);
+      }
+      byAlias.get(message.alias_id)!.push(message);
+    }
+
+    return allMessages.filter((message) => {
+      const alias = aliasById.get(message.alias_id);
+      const text = messageText(message, alias);
+
+      if (query && !text.includes(query)) {
+        return false;
+      }
+
+      if (searchFilter === "free-bonus") {
+        return text.includes(FREE_BONUS_PHRASE);
+      }
+
+      if (searchFilter === "first-move-today") {
+        return text.includes(FIRST_MOVE_PHRASE) && isReceivedToday(message);
+      }
+
+      if (searchFilter === "deposit-bonus-open") {
+        if (!text.includes(DEPOSIT_BONUS_PHRASE)) {
+          return false;
+        }
+
+        const receivedAt = new Date(message.received_at).getTime();
+        const hasWithdrawalAfter = (byAlias.get(message.alias_id) ?? []).some((candidate) => {
+          return (
+            new Date(candidate.received_at).getTime() > receivedAt &&
+            messageText(candidate, alias).includes("withdrawal")
+          );
+        });
+
+        return isReceivedToday(message) || !hasWithdrawalAfter;
+      }
+
+      return Boolean(query);
     });
-  }, [loadMessages, selectedAliasId]);
+  }, [aliasById, allMessages, searchFilter, searchQuery]);
+
+  const searchAliasCount = useMemo(
+    () => new Set(searchResults.map((message) => message.alias_id)).size,
+    [searchResults]
+  );
+  const searchActive = Boolean(searchQuery.trim()) || searchFilter !== "all";
 
   const checkAvailability = useCallback(
     async (rawPrefix: string) => {
@@ -235,7 +358,7 @@ export default function DashboardPage() {
     }
 
     setAliases((current) => current.filter((alias) => alias.id !== aliasId));
-    setMessages([]);
+    setAllMessages((current) => current.filter((message) => message.alias_id !== aliasId));
     setSelectedAliasId((current) => (current === aliasId ? null : current));
     setStatus({ type: "success", message: "Alias deleted." });
   }
@@ -251,7 +374,7 @@ export default function DashboardPage() {
       return;
     }
 
-    setMessages((current) => current.filter((message) => message.id !== messageId));
+    setAllMessages((current) => current.filter((message) => message.id !== messageId));
     setStatus({ type: "success", message: "Message deleted." });
   }
 
@@ -297,6 +420,79 @@ export default function DashboardPage() {
 
       <main className="mail-pane">
         {status ? <div className={`status ${status.type}`}>{status.message}</div> : null}
+        <section className="search-panel" aria-label="Search messages">
+          <div className="search-input-wrap">
+            <Search size={16} className="search-input-icon" />
+            <input
+              className="search-input"
+              placeholder="Search all email, aliases, senders, subjects, or body text"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                className="search-clear-btn"
+                title="Clear search"
+                onClick={() => setSearchQuery("")}
+              >
+                <X size={15} />
+              </button>
+            ) : null}
+          </div>
+
+          <div className="filter-row" aria-label="Quick filters">
+            <span className="filter-label">
+              <Filter size={14} />
+              Filters
+            </span>
+            {SEARCH_FILTERS.map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                className={`filter-chip${searchFilter === filter.key ? " active" : ""}`}
+                onClick={() => setSearchFilter(filter.key)}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+
+          {searchActive ? (
+            <div className="search-results">
+              <div className="search-results-summary">
+                {searchResults.length
+                  ? `${searchResults.length} match${searchResults.length === 1 ? "" : "es"} across ${searchAliasCount} alias${searchAliasCount === 1 ? "" : "es"}`
+                  : "No matching emails found"}
+              </div>
+              {searchResults.length ? (
+                <ul className="search-results-list">
+                  {searchResults.map((message) => {
+                    const alias = aliasById.get(message.alias_id);
+                    const address = alias ? `${alias.prefix}@${ALIAS_DOMAIN}` : message.to_address || "Unknown alias";
+                    return (
+                      <li key={message.id}>
+                        <button
+                          type="button"
+                          className="search-result-row"
+                          onClick={() => setSelectedAliasId(message.alias_id)}
+                        >
+                          <div className="search-result-meta">
+                            <span className="search-result-address">{address}</span>
+                            <span className="search-result-date">{formatSearchDate(message.received_at)}</span>
+                          </div>
+                          <div className="search-result-subject">{message.subject || "(No subject)"}</div>
+                          <div className="search-result-snippet">{messageSnippet(message)}</div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+
         {selectedAlias ? (
           <div className="mail-pane-content">
             <div className="pane-header">
@@ -337,7 +533,7 @@ export default function DashboardPage() {
                     {selectedAlias.prefix}@{ALIAS_DOMAIN}
                   </div>
                   <div className="pane-alias-sub muted">
-                    {messages.length} message{messages.length !== 1 ? "s" : ""}
+                    {selectedMessages.length} message{selectedMessages.length !== 1 ? "s" : ""}
                     {aliases.length > 1 && (
                       <span className="alias-nav-position">
                         {" "}· {selectedIndex + 1} of {aliases.length}
@@ -353,7 +549,7 @@ export default function DashboardPage() {
             <div className="message-list">
               <MessageList
                 deletingMessageId={deletingMessageId}
-                messages={messages}
+                messages={selectedMessages}
                 onDeleteMessage={deleteMessage}
               />
             </div>
