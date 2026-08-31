@@ -137,7 +137,7 @@ export default function DashboardPage() {
         const { data, error } = await supabase
           .from("messages")
           .select(
-            "id,alias_id,to_address,from_address,subject,body_text,body_html,spam_verdict,spam_score,received_at,created_at"
+            "id,alias_id,to_address,from_address,subject,body_text,body_html,spam_verdict,spam_score,read_at,archived_at,received_at,created_at"
           )
           .in("alias_id", aliasIds.slice(index, index + 100))
           .order("received_at", { ascending: false });

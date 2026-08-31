@@ -15,6 +15,8 @@ export type Message = {
   body_html: string | null;
   spam_verdict: string | null;
   spam_score: string | null;
+  read_at: string | null;
+  archived_at: string | null;
   received_at: string;
   created_at: string;
 };

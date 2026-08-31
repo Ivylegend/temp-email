@@ -989,6 +989,24 @@ a {
   font-weight: 600;
 }
 
+.message-state-badge {
+  align-items: center;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 4px 7px;
+}
+
+.message-state-badge.compact {
+  margin-left: 8px;
+  padding: 3px 6px;
+}
+
 
 .message-body {
   background: var(--panel-soft);

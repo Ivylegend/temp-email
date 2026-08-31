@@ -81,6 +81,8 @@ export function MessageList({ messages, deletingMessageId, onDeleteMessage }: Pr
                 Spam{openMessage.spam_score ? ` (${openMessage.spam_score})` : ""}
               </span>
             )}
+            {openMessage.archived_at ? <span className="message-state-badge">Archived</span> : null}
+            {openMessage.read_at ? <span className="message-state-badge">Read</span> : null}
           </div>
         </div>
 
@@ -148,6 +150,7 @@ export function MessageList({ messages, deletingMessageId, onDeleteMessage }: Pr
                   <ShieldAlert size={12} /> Spam
                 </span>
               )}
+              {msg.archived_at ? <span className="message-state-badge compact">Archived</span> : null}
             </div>
 
             {/* Body snippet */}

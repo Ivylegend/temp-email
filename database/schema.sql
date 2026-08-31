@@ -25,6 +25,8 @@ create table if not exists public.messages (
   raw_headers jsonb,
   spam_verdict text,
   spam_score text,
+  read_at timestamptz,
+  archived_at timestamptz,
   received_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
@@ -40,6 +42,8 @@ alter table public.messages add column if not exists to_address text;
 alter table public.messages add column if not exists raw_headers jsonb;
 alter table public.messages add column if not exists spam_verdict text;
 alter table public.messages add column if not exists spam_score text;
+alter table public.messages add column if not exists read_at timestamptz;
+alter table public.messages add column if not exists archived_at timestamptz;
 
 alter table public.profiles enable row level security;
 alter table public.aliases enable row level security;
@@ -168,6 +172,7 @@ grant execute on function public.is_alias_available(text) to authenticated;
 
 create index if not exists aliases_user_id_idx on public.aliases(user_id);
 create index if not exists messages_alias_id_received_at_idx on public.messages(alias_id, received_at desc);
+create index if not exists messages_archived_at_idx on public.messages(archived_at);
 create index if not exists user_alias_limits_user_id_idx on public.user_alias_limits(user_id);
 
 create extension if not exists pg_cron with schema extensions;
@@ -177,8 +182,19 @@ where exists (
   select 1 from cron.job where jobname = 'delete-old-alias-messages'
 );
 
+select cron.unschedule('archive-old-alias-messages')
+where exists (
+  select 1 from cron.job where jobname = 'archive-old-alias-messages'
+);
+
 select cron.schedule(
-  'delete-old-alias-messages',
+  'archive-old-alias-messages',
   '15 3 * * *',
-  $$delete from public.messages where received_at < now() - interval '5 days'$$
+  $$
+    update public.messages
+    set archived_at = coalesce(archived_at, now()),
+        read_at = coalesce(read_at, now())
+    where received_at < now() - interval '5 days'
+      and (archived_at is null or read_at is null)
+  $$
 );
