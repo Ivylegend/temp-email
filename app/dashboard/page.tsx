@@ -334,7 +334,9 @@ export default function DashboardPage() {
         insertError.code === "23505"
           ? "That alias is already claimed."
           : insertError.message.includes("Alias limit reached")
-            ? "This account has reached its 100 alias limit."
+            ? maxAliases
+              ? `This account has reached its ${maxAliases} alias limit.`
+              : "This account has reached its configured alias limit."
             : insertError.message;
       setStatus({ type: "error", message });
       return;
