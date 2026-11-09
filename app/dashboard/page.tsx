@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Filter, Inbox, LogOut, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, Inbox, LogOut, Search, ShieldCheck, X } from "lucide-react";
 import { ClipLoader } from "react-spinners";
 import { RefreshLink } from "@/components/refresh-link";
 import { ALIAS_DOMAIN, APP_NAME } from "@/lib/config";
@@ -80,6 +81,7 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFilter, setSearchFilter] = useState<SearchFilter>("all");
   const [userEmail, setUserEmail] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [maxAliases, setMaxAliases] = useState<number | undefined>();
   const [status, setStatus] = useState<{ type: "error" | "success"; message: string } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -204,6 +206,7 @@ export default function DashboardPage() {
       }
 
       setUserEmail(user.email ?? "");
+      setIsAdmin(user.app_metadata?.is_admin === true);
       try {
         const [nextAliases] = await Promise.all([loadAliases(), loadAliasLimit(user.id)]);
         await loadMessagesForAliases(nextAliases);
@@ -400,9 +403,16 @@ export default function DashboardPage() {
       <aside className="sidebar">
         <div className="sidebar-header">
           <div className="brand">{APP_NAME}</div>
-          <button className="icon-btn-ghost" title="Sign out" type="button" disabled={signingOut} onClick={signOut}>
-            {signingOut ? <ClipLoader color="currentColor" size={16} /> : <LogOut size={16} />}
-          </button>
+          <div className="sidebar-header-actions">
+            {isAdmin ? (
+              <Link className="icon-btn-ghost" href="/admin" title="Open admin view" aria-label="Open admin view">
+                <ShieldCheck size={16} />
+              </Link>
+            ) : null}
+            <button className="icon-btn-ghost" title="Sign out" type="button" disabled={signingOut} onClick={signOut}>
+              {signingOut ? <ClipLoader color="currentColor" size={16} /> : <LogOut size={16} />}
+            </button>
+          </div>
         </div>
 
         <div className="sidebar-user">{userEmail}</div>

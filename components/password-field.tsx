@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
-export function PasswordField() {
+type Props = {
+  autoComplete?: "current-password" | "new-password";
+  minLength?: number;
+};
+
+export function PasswordField({ autoComplete = "current-password", minLength }: Props) {
   const [visible, setVisible] = useState(false);
 
   return (
@@ -13,7 +18,8 @@ export function PasswordField() {
         <input
           name="password"
           type={visible ? "text" : "password"}
-          autoComplete="current-password"
+          autoComplete={autoComplete}
+          minLength={minLength}
           required
         />
         <button

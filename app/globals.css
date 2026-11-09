@@ -63,6 +63,12 @@ a {
   padding: 14px 14px 12px;
 }
 
+.sidebar-header-actions {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+
 .brand {
   font-size: 15px;
   font-weight: 700;
@@ -1123,6 +1129,338 @@ a {
 .hint.taken,
 .hint.invalid  { color: #832124; }
 
+/* ─── Admin dashboard ─────────────────────────────────────── */
+
+.admin-shell {
+  min-height: 100vh;
+}
+
+.admin-loading {
+  min-height: 100vh;
+  justify-content: center;
+}
+
+.admin-topbar {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  min-height: 70px;
+  padding: 12px clamp(20px, 4vw, 56px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.admin-brand-block,
+.admin-topbar-actions,
+.admin-card-heading,
+.admin-account-cell {
+  align-items: center;
+  display: flex;
+}
+
+.admin-brand-block {
+  gap: 11px;
+}
+
+.admin-brand-icon,
+.admin-stat-icon,
+.admin-card-icon {
+  align-items: center;
+  background: var(--accent-bg);
+  border: 1px solid #cde5d7;
+  border-radius: 9px;
+  color: var(--accent-dark);
+  display: inline-flex;
+  flex-shrink: 0;
+  justify-content: center;
+}
+
+.admin-brand-icon {
+  height: 38px;
+  width: 38px;
+}
+
+.admin-kicker {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.admin-topbar-actions {
+  gap: 8px;
+}
+
+.admin-email {
+  color: var(--muted);
+  font-size: 12px;
+  margin-right: 4px;
+}
+
+.admin-main {
+  margin: 0 auto;
+  max-width: 1380px;
+  padding: 46px clamp(20px, 4vw, 56px) 64px;
+}
+
+.admin-intro {
+  align-items: flex-end;
+  display: flex;
+  gap: 28px;
+  justify-content: space-between;
+}
+
+.admin-eyebrow {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.admin-intro h1 {
+  font-size: clamp(28px, 4vw, 42px);
+  letter-spacing: -1.3px;
+  line-height: 1.05;
+  margin: 0 0 10px;
+}
+
+.admin-intro .muted {
+  line-height: 1.55;
+  margin: 0;
+  max-width: 670px;
+}
+
+.admin-status {
+  margin: 22px 0 0;
+}
+
+.admin-stats {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 28px 0 20px;
+}
+
+.admin-stat-card,
+.admin-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 7px 24px rgba(22, 45, 34, 0.035);
+}
+
+.admin-stat-card {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  min-height: 100px;
+  padding: 20px;
+}
+
+.admin-stat-icon {
+  height: 42px;
+  width: 42px;
+}
+
+.admin-stat-card div {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-stat-card strong {
+  font-size: 25px;
+  letter-spacing: -0.7px;
+}
+
+.admin-stat-card span:last-child {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.admin-grid {
+  align-items: start;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+}
+
+.admin-card {
+  overflow: hidden;
+}
+
+.admin-create-card {
+  padding: 22px;
+  position: sticky;
+  top: 92px;
+}
+
+.admin-card-heading {
+  gap: 12px;
+}
+
+.admin-card-icon {
+  height: 40px;
+  width: 40px;
+}
+
+.admin-card-heading h2 {
+  font-size: 17px;
+  letter-spacing: -0.3px;
+  margin: 0 0 3px;
+}
+
+.admin-card-heading p {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+.admin-create-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.admin-form-note {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.admin-create-submit {
+  margin-top: 2px;
+  width: 100%;
+}
+
+.admin-grid > .admin-card:last-child {
+  min-height: 360px;
+  padding: 22px 0 0;
+}
+
+.admin-grid > .admin-card:last-child > .admin-card-heading {
+  padding: 0 22px 20px;
+}
+
+.admin-accounts-heading {
+  justify-content: space-between;
+}
+
+.admin-count-badge {
+  align-items: center;
+  background: var(--panel-soft);
+  border-radius: 999px;
+  color: var(--accent-dark);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  height: 25px;
+  justify-content: center;
+  min-width: 25px;
+  padding: 0 8px;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-card table {
+  border-collapse: collapse;
+  min-width: 720px;
+  width: 100%;
+}
+
+.admin-card th {
+  background: #fafcfb;
+  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 11px 18px;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.admin-card td {
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  padding: 14px 18px;
+  vertical-align: middle;
+}
+
+.admin-card tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-account-cell {
+  gap: 10px;
+  min-width: 230px;
+}
+
+.admin-avatar {
+  align-items: center;
+  background: var(--accent-bg);
+  border-radius: 50%;
+  color: var(--accent-dark);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.admin-account-cell div {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-account-cell strong {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.admin-account-cell div span,
+.admin-date,
+.admin-no-limit {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.admin-usage-cell {
+  display: grid;
+  gap: 7px;
+  min-width: 130px;
+}
+
+.admin-progress {
+  background: var(--line);
+  border-radius: 999px;
+  display: block;
+  height: 5px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.admin-progress span {
+  background: var(--accent);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  min-width: 2px;
+}
+
+.admin-card .empty {
+  margin: 0 22px 22px;
+}
+
 /* ─── Login page (unchanged) ──────────────────────────────── */
 
 .login-page {
@@ -1212,6 +1550,38 @@ input:focus {
 /* ─── Responsive ──────────────────────────────────────────── */
 
 @media (max-width: 680px) {
+  .admin-topbar,
+  .admin-intro {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-topbar {
+    gap: 12px;
+    position: static;
+  }
+
+  .admin-topbar-actions {
+    flex-wrap: wrap;
+  }
+
+  .admin-email {
+    flex-basis: 100%;
+  }
+
+  .admin-main {
+    padding-top: 30px;
+  }
+
+  .admin-stats,
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-create-card {
+    position: static;
+  }
+
   .split-shell {
     flex-direction: column;
     height: auto;
